@@ -40,6 +40,21 @@ func (f StructMap) GetByPath(path string) *FieldInfo {
 	return f.Paths[path]
 }
 
+// GetByNameAt returns a *FieldInfo for a given name after skipping conflicting names
+func (f StructMap) GetByNameAt(name string, conflictIdx int) *FieldInfo {
+	matchedCount := 0
+	for _, fi := range f.Index {
+		if fi.Path == name {
+			// return field by position
+			if matchedCount == conflictIdx {
+				return fi
+			}
+			matchedCount++
+		}
+	}
+	return nil
+}
+
 // GetByTraversal returns a *FieldInfo for a given integer path.  It is
 // analogous to reflect.FieldByIndex.
 func (f StructMap) GetByTraversal(index []int) *FieldInfo {
@@ -145,7 +160,7 @@ func (m *Mapper) ValidFieldMap(v reflect.Value) map[string]reflect.Value {
 	return r
 }
 
-// FieldByName returns a field by the its mapped name as a reflect.Value.
+// FieldByName returns the last field by the its mapped name as a reflect.Value.
 // Panics if v's Kind is not Struct or v is not Indirectable to a struct Kind.
 // Returns zero Value if the name is not found.
 func (m *Mapper) FieldByName(v reflect.Value, name string) reflect.Value {
@@ -153,8 +168,21 @@ func (m *Mapper) FieldByName(v reflect.Value, name string) reflect.Value {
 	mustBe(v, reflect.Struct)
 
 	tm := m.TypeMap(v.Type())
-	fi, ok := tm.Names[name]
-	if !ok {
+	fi := tm.GetByNameAt(name, 0)
+	if fi == nil {
+		return v
+	}
+	return FieldByIndexes(v, fi.Index)
+}
+
+// FieldByNameAt returns field by it's mapped name as a reflect.Value after skipping unwanted conflicting names
+func (m *Mapper) FieldByNameAt(v reflect.Value, name string, conflictIdx int) reflect.Value {
+	v = reflect.Indirect(v)
+	mustBe(v, reflect.Struct)
+
+	tm := m.TypeMap(v.Type())
+	fi := tm.GetByNameAt(name, conflictIdx)
+	if fi == nil {
 		return v
 	}
 	return FieldByIndexes(v, fi.Index)

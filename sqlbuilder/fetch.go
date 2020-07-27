@@ -164,11 +164,16 @@ func fetchResult(iter *iterator, itemT reflect.Type, columns []string) (reflect.
 
 		values := make([]interface{}, len(columns))
 		typeMap := Mapper.TypeMap(itemT)
-		fieldMap := typeMap.Names
 
 		for i, k := range columns {
-			fi, ok := fieldMap[k]
-			if !ok {
+			ki := 0
+			for j := 0; j < i; j++ {
+				if k == columns[j] {
+					ki++
+				}
+			}
+			fi := typeMap.GetByNameAt(k, ki)
+			if fi == nil {
 				values[i] = new(interface{})
 				continue
 			}

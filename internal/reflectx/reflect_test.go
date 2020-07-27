@@ -93,6 +93,37 @@ func TestBasicEmbedded(t *testing.T) {
 	}
 }
 
+func TestEmbeddedWithInlineTags(t *testing.T) {
+	type Foo struct {
+		A int `db:"a"`
+	}
+	type Bar struct {
+		A int `db:"a"`
+	}
+	type Baz struct {
+		Foo Foo `db:",inline"`
+		Bar Bar `db:",inline"`
+	}
+	m := NewMapperFunc("db", func(s string) string { return s })
+
+	z := Baz{Foo: Foo{1}, Bar: Bar{3}}
+
+	fields := m.TypeMap(reflect.TypeOf(z))
+	if len(fields.Index) != 4 {
+		t.Errorf("Expecting 4 fields but got %d", len(fields.Index))
+	}
+
+	zv := reflect.ValueOf(z)
+	v := m.FieldByNameAt(zv, "a", 0)
+	if ival(v) != z.Foo.A {
+		t.Errorf("Expecting %d, got %d", z.Foo.A, ival(v))
+	}
+	v2 := m.FieldByNameAt(zv, "a", 1)
+	if ival(v2) != z.Bar.A {
+		t.Errorf("Expecting %d, got %d", z.Bar.A, ival(v2))
+	}
+}
+
 func TestEmbeddedSimple(t *testing.T) {
 	type UUID [16]byte
 	type MyID struct {
@@ -140,9 +171,13 @@ func TestBasicEmbeddedWithTags(t *testing.T) {
 	// 	log.Println(fi)
 	// }
 
-	v := m.FieldByName(zv, "a")
-	if ival(v) != z.Bar.Foo.A { // the dominant field
+	v := m.FieldByNameAt(zv, "a", 1)
+	if ival(v) != z.Bar.Foo.A {
 		t.Errorf("Expecting %d, got %d", z.Bar.Foo.A, ival(v))
+	}
+	v = m.FieldByName(zv, "a")
+	if ival(v) != z.A {
+		t.Errorf("Expecting %d, got %d", z.A, ival(v))
 	}
 	v = m.FieldByName(zv, "b")
 	if ival(v) != z.B {
